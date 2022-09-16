@@ -19,9 +19,12 @@ module Twitter
         @parser << data
       end
 
-      def on_headers_complete(_headers)
+      def on_headers_complete(headers)
         error = Twitter::Error::ERRORS[@parser.status_code]
-        raise error if error
+        if error
+          error = error.new('', headers)
+          raise error
+        end
       end
 
       def on_body(data)
