@@ -19,18 +19,14 @@ module Twitter
         @parser << data
       end
 
-      def on_headers_complete(headers)
-        error = Twitter::Error::ERRORS[@parser.status_code]
-        if error
-          error = error.new('', headers)
-          raise error
-        end
+      def on_headers_complete(_headers)
+        error = Twitter::Error.errors[@parser.status_code]
+        raise error.new if error
       end
 
       def on_body(data)
         @tokenizer.extract(data).each do |line|
           next if line.empty?
-
           @block.call(JSON.parse(line, symbolize_names: true))
         end
       end

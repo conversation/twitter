@@ -1,20 +1,20 @@
 require 'helper'
 
-class FakeConnection
-  def initialize(body)
-    @body = body
-  end
-
-  def stream(_request, response)
-    @body.each_line do |line|
-      response.on_body(line)
-    end
-  end
-end
-
 describe Twitter::Streaming::Client do
   before do
-    @client = Twitter::Streaming::Client.new(consumer_key: 'CK', consumer_secret: 'CS', access_token: 'AT', access_token_secret: 'AS')
+    @client = Twitter::Streaming::Client.new
+  end
+
+  class FakeConnection
+    def initialize(body)
+      @body = body
+    end
+
+    def stream(_, response)
+      @body.each_line do |line|
+        response.on_body(line)
+      end
+    end
   end
 
   describe '#before_request' do
@@ -117,18 +117,6 @@ describe Twitter::Streaming::Client do
       expect(objects[4].id).to eq(272_691_609_211_117_568)
       expect(objects[5]).to be_a Twitter::Streaming::StallWarning
       expect(objects[5].code).to eq('FALLING_BEHIND')
-    end
-  end
-
-  context 'when using a proxy' do
-    let(:proxy) { {host: '127.0.0.1', port: 3328} }
-    before do
-      @client = Twitter::Streaming::Client.new(consumer_key: 'CK', consumer_secret: 'CS', access_token: 'AT', access_token_secret: 'AS', proxy: proxy)
-    end
-    it 'requests via the proxy' do
-      @client.connection = FakeConnection.new(fixture('track_streaming.json'))
-      expect(HTTP::Request).to receive(:new).with(verb: :get, uri: 'https://stream.twitter.com:443/1.1/statuses/sample.json?', headers: kind_of(Hash), proxy: proxy)
-      @client.sample {}
     end
   end
 end

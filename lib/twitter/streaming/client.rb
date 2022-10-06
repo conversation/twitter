@@ -3,15 +3,14 @@ require 'twitter/arguments'
 require 'twitter/client'
 require 'twitter/headers'
 require 'twitter/streaming/connection'
-require 'twitter/streaming/message_parser'
 require 'twitter/streaming/response'
-require 'twitter/utils'
+require 'twitter/streaming/message_parser'
 
 module Twitter
   module Streaming
     class Client < Twitter::Client
-      include Twitter::Utils
       attr_writer :connection
+      attr_accessor :tcp_socket_class, :ssl_socket_class
 
       # Initializes a new Client object
       #
@@ -105,18 +104,15 @@ module Twitter
         end
       end
 
-      def close
-        @connection.close
-      end
-
     private
 
       def request(method, uri, params)
         before_request.call
-        headers = Twitter::Headers.new(self, method, uri, params).request_headers
-        request = HTTP::Request.new(verb: method, uri: uri + '?' + to_url_params(params), headers: headers, proxy: proxy)
+        authorization = Twitter::Headers.new(self, method, uri, params).oauth_auth_header.to_s
+        headers = default_headers.merge(authorization: authorization)
+        request = HTTP::Request.new(verb: method, uri: uri + '?' + to_url_params(params), headers: headers)
         response = Streaming::Response.new do |data|
-          if item = Streaming::MessageParser.parse(data) # rubocop:disable Lint/AssignmentInCondition
+          if item = Streaming::MessageParser.parse(data) # rubocop:disable AssignmentInCondition
             yield(item)
           end
         end
@@ -124,23 +120,29 @@ module Twitter
       end
 
       def to_url_params(params)
-        uri = Addressable::URI.new
-        uri.query_values = params
-        uri.query
+        params.collect do |param, value|
+          [param, URI.encode(value)].join('=')
+        end.sort.join('&')
       end
 
-      # Takes a mixed array of Integers and Twitter::User objects and returns a
-      # consistent array of Twitter user IDs.
-      #
-      # @param users [Array]
-      # @return [Array<Integer>]
+      def default_headers
+        @default_headers ||= {
+          accept: '*/*',
+          user_agent: user_agent,
+        }
+      end
+
       def collect_user_ids(users)
-        users.collect do |user|
+        user_ids = []
+        users.flatten.each do |user|
           case user
-          when Integer       then user
-          when Twitter::User then user.id
+          when Integer
+            user_ids << user
+          when Twitter::User
+            user_ids << user.id
           end
-        end.compact
+        end
+        user_ids
       end
     end
   end
