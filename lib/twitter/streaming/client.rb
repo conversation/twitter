@@ -3,14 +3,14 @@ require 'twitter/arguments'
 require 'twitter/client'
 require 'twitter/headers'
 require 'twitter/streaming/connection'
+require 'twitter/streaming/nonblocking_connection'
 require 'twitter/streaming/response'
 require 'twitter/streaming/message_parser'
 
 module Twitter
   module Streaming
     class Client < Twitter::Client
-      attr_writer :connection
-      attr_accessor :tcp_socket_class, :ssl_socket_class
+      attr_accessor :connection, :tcp_socket_class, :ssl_socket_class
 
       # Initializes a new Client object
       #
@@ -20,7 +20,7 @@ module Twitter
       # @return [Twitter::Streaming::Client]
       def initialize(options = {})
         super
-        @connection = Streaming::Connection.new(options)
+        @connection = options[:nonblocking] ? Streaming::NonblockingConnection.new(options) : Streaming::Connection.new(options)
       end
 
       # Returns public statuses that match one or more filter predicates
@@ -92,6 +92,14 @@ module Twitter
         request(:get, 'https://userstream.twitter.com:443/1.1/user.json', options, &block)
       end
 
+      def connected?
+        @connection.connected?
+      end
+
+      def close
+        @connection.close
+      end
+
       # Set a Proc to be run when connection established.
       def before_request(&block)
         if block_given?
@@ -107,16 +115,19 @@ module Twitter
     private
 
       def request(method, uri, params)
-        before_request.call
-        authorization = Twitter::Headers.new(self, method, uri, params).oauth_auth_header.to_s
-        headers = default_headers.merge(authorization: authorization)
-        request = HTTP::Request.new(verb: method, uri: uri + '?' + to_url_params(params), headers: headers)
-        response = Streaming::Response.new do |data|
-          if item = Streaming::MessageParser.parse(data) # rubocop:disable AssignmentInCondition
-            yield(item)
+        unless connected?
+          before_request.call
+          authorization = Twitter::Headers.new(self, method, uri, params).oauth_auth_header.to_s
+          headers = default_headers.merge(authorization: authorization)
+          @request = HTTP::Request.new(verb: method, uri: uri + '?' + to_url_params(params), headers: headers)
+          @response = Streaming::Response.new do |data|
+            if item = Streaming::MessageParser.parse(data) # rubocop:disable AssignmentInCondition
+              yield(item)
+            end
           end
         end
-        @connection.stream(request, response)
+
+        @connection.stream(@request, @response)
       end
 
       def to_url_params(params)
