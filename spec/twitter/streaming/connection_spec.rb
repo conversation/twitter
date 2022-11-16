@@ -25,4 +25,20 @@ describe Twitter::Streaming::Connection do
       end
     end
   end
+
+  describe 'connected?' do
+    subject(:connection) { Twitter::Streaming::Connection.new }
+
+    it 'returns false' do
+      expect(connection.connected?).to be(false)
+    end
+  end
+
+  describe "close" do
+    subject(:connection) { Twitter::Streaming::Connection.new }
+
+    it "performs a no-op" do
+      expect(connection.close).to be_nil
+    end
+  end
 end
