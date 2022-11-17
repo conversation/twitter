@@ -43,7 +43,7 @@ module Twitter
       def start_stream(request)
         client_context = OpenSSL::SSL::SSLContext.new
         client         = @tcp_socket_class.new(Resolv.getaddress(request.socket_host), request.socket_port)
-        @ssl_client     = @ssl_socket_class.new(client, client_context)
+        @ssl_client    = @ssl_socket_class.new(client, client_context)
         @ssl_client.sync_close = true
 
         @ssl_client.connect
