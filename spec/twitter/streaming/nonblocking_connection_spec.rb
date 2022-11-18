@@ -1,9 +1,10 @@
 require 'helper'
+require 'twitter/streaming/nonblocking_connection'
 
-describe Twitter::Streaming::Connection do
+describe Twitter::Streaming::NonblockingConnection do
   describe 'initialize' do
     context 'no options provided' do
-      subject(:connection) { Twitter::Streaming::Connection.new }
+      subject(:connection) { Twitter::Streaming::NonblockingConnection.new }
 
       it 'sets the default socket classes' do
         expect(connection.tcp_socket_class).to eq TCPSocket
@@ -16,7 +17,7 @@ describe Twitter::Streaming::Connection do
       class DummySSLSocket; end
 
       subject(:connection) do
-        Twitter::Streaming::Connection.new(tcp_socket_class: DummyTCPSocket, ssl_socket_class: DummySSLSocket)
+        Twitter::Streaming::NonblockingConnection.new(tcp_socket_class: DummyTCPSocket, ssl_socket_class: DummySSLSocket)
       end
 
       it 'sets the default socket classes' do
@@ -24,21 +25,13 @@ describe Twitter::Streaming::Connection do
         expect(connection.ssl_socket_class).to eq DummySSLSocket
       end
     end
-  end
 
-  describe 'connected?' do
-    subject(:connection) { Twitter::Streaming::Connection.new }
+    describe 'connected?' do
+      subject(:connection) { Twitter::Streaming::Connection.new }
 
-    it 'returns false' do
-      expect(connection.connected?).to be(false)
-    end
-  end
-
-  describe "close" do
-    subject(:connection) { Twitter::Streaming::Connection.new }
-
-    it "performs a no-op" do
-      expect(connection.close).to be_nil
+      it 'is initialised to false' do
+        expect(connection.connected?).to be(false)
+      end
     end
   end
 end

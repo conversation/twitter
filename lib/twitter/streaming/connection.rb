@@ -22,6 +22,16 @@ module Twitter
           response << body
         end
       end
+
+      def connected?
+        # Connection is established and broken within #stream, so we consider it closed anywhere else.
+        # For comparison, see NonblockingConnection.
+        false
+      end
+
+      def close
+        # No-op, as we only have a connection within #stream
+      end
     end
   end
 end

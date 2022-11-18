@@ -6,14 +6,52 @@ describe Twitter::Streaming::Client do
   end
 
   class FakeConnection
+    attr_reader :request, :response
+
     def initialize(body)
       @body = body
     end
 
-    def stream(_, response)
+    def stream(request, response)
+      @request = request
+      @response = response
+
       @body.each_line do |line|
         response.on_body(line)
       end
+    end
+
+    def connected?
+      false
+    end
+
+    def close
+    end
+  end
+
+  describe '#initialize' do
+    it 'constructs a connection' do
+      expect(Twitter::Streaming::Client.new.connection).to be_a(Twitter::Streaming::Connection)
+    end
+
+    it 'constructs a non-blocking connection' do
+      expect(Twitter::Streaming::Client.new(nonblocking: true).connection).to be_a(Twitter::Streaming::NonblockingConnection)
+    end
+  end
+
+  describe '#connected?' do
+    it 'returns whether the connection is connected' do
+      @client.connection = FakeConnection.new('')
+      expect(@client.connection).to receive(:connected?).and_return(false)
+      expect(@client.connected?).to be(false)
+    end
+  end
+
+  describe '#close' do
+    it 'closes the connection' do
+      @client.connection = FakeConnection.new('')
+      expect(@client.connection).to receive(:close)
+      @client.close
     end
   end
 
@@ -117,6 +155,21 @@ describe Twitter::Streaming::Client do
       expect(objects[4].id).to eq(272_691_609_211_117_568)
       expect(objects[5]).to be_a Twitter::Streaming::StallWarning
       expect(objects[5].code).to eq('FALLING_BEHIND')
+    end
+  end
+
+  context 'with a non-blocking connection' do
+    it "maintains the request and response between polls" do
+      @client.connection = FakeConnection.new(fixture('track_streaming.json'))
+
+      @client.filter(track: 'india') {}
+
+      # The nonblocking connection would now be connected, so stub our fake connection as such
+      allow(@client.connection).to receive(:connected?).and_return(true)
+
+      expect {
+        @client.filter(track: 'india') {}
+      }.not_to(change { [@client.connection.request.object_id, @client.connection.response.object_id] })
     end
   end
 end
