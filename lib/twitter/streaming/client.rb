@@ -1,3 +1,4 @@
+require 'cgi'
 require 'http/request'
 require 'twitter/arguments'
 require 'twitter/client'
@@ -132,7 +133,7 @@ module Twitter
 
       def to_url_params(params)
         params.collect do |param, value|
-          [param, URI.encode(value)].join('=')
+          [param, CGI.escape(value)].join('=')
         end.sort.join('&')
       end
 
